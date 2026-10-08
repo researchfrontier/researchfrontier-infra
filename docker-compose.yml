@@ -1,0 +1,45 @@
+# ResearchFrontier — local/self-host orchestration of the 3 containers.
+# Requires the 4 repos checked out as siblings:
+#   researchfrontier-frontend/  researchfrontier-backend/  researchfrontier-db/  researchfrontier-infra/
+# Run from this directory:  docker compose up --build
+name: researchfrontier
+
+services:
+  db:
+    build: ../researchfrontier-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-researchfrontier}
+    ports:
+      - "5432:5432"
+    volumes:
+      - rf_pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ../researchfrontier-backend
+    environment:
+      RF_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-researchfrontier}
+      RF_CORS_ORIGINS: "http://localhost:5173,http://localhost:8080,https://researchfrontier.github.io"
+      RF_DEMO_RELATIVE_DATES: "true"
+      RF_OPENALEX_API_KEY: ${RF_OPENALEX_API_KEY:-}
+      RF_CONTACT_EMAIL: ${RF_CONTACT_EMAIL:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../researchfrontier-frontend
+      args:
+        # The browser reaches the API on the host, so this is localhost (not "backend").
+        VITE_API_BASE: "http://localhost:8000"
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  rf_pgdata:

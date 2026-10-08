@@ -1,0 +1,26 @@
+# Fly.io deploy for the backend API (phase-1 PaaS host).
+# Database lives on managed serverless Postgres (Neon); set DATABASE_URL + keys as
+# Fly secrets:  fly secrets set RF_DATABASE_URL=... RF_OPENALEX_API_KEY=... RF_CONTACT_EMAIL=...
+# Deploy from the backend repo:  fly deploy
+app = "researchfrontier-api"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  RF_CORS_ORIGINS = "https://researchfrontier.github.io"
+  RF_DEMO_RELATIVE_DATES = "false"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  method = "get"
+  path = "/health"
+  interval = "30s"
+  timeout = "5s"
