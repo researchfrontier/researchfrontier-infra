@@ -48,8 +48,8 @@ over CORS — because Pages cannot run a server or a database.
   preprints). Later: bioRxiv/medRxiv, Europe PMC/PubMed (MeSH), DOAJ (peer-review
   verification). Dedup: DOI → preprint↔published cluster → fuzzy title+author+year.
   Ingestion is watermarked on ingest date, not publication date. *Today only
-  OpenAlex is wired (daily lookback ingest, DOI dedup); the other sources reach us
-  through it.*
+  OpenAlex is wired (every paper of the window: daily 7-day + weekly 30-day pass,
+  DOI dedup); the other sources reach us through it.*
 - **Peer-review badge** derived (never guessed) from OpenAlex (source type,
   version, work type, `is_retracted`) with Crossref confirmation for retractions:
   `peer_reviewed` · `preprint_published` · `preprint` · `retracted` · `unknown`,

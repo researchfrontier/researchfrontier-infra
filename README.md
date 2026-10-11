@@ -43,7 +43,7 @@ To pull real recent papers instead of the seed, set `RF_OPENALEX_API_KEY` and
 
 ```bash
 docker compose exec backend python -m app.jobs.sync_taxonomy   # full taxonomy (source of truth)
-docker compose exec backend python -m app.jobs.ingest --days 7 # recent papers per field (keeps 30 days)
+docker compose exec backend python -m app.jobs.ingest --days 30 # every paper of the 30-day window, per field
 docker compose exec backend python -m app.jobs.sync_stats      # true counts: hot fields, directions, momentum
 docker compose exec backend python -m app.jobs.sync_rankings   # Trends: most-cited + most-active
 docker compose exec backend python -m app.jobs.sync_year_counts # Trends: yearly output curves
