@@ -43,7 +43,10 @@ To pull real recent papers instead of the seed, set `RF_OPENALEX_API_KEY` and
 
 ```bash
 docker compose exec backend python -m app.jobs.sync_taxonomy   # full taxonomy (source of truth)
-docker compose exec backend python -m app.jobs.ingest --days 7 # recent papers per field
+docker compose exec backend python -m app.jobs.ingest --days 7 # recent papers per field (keeps 30 days)
+docker compose exec backend python -m app.jobs.sync_stats      # true counts: hot fields, directions, momentum
+docker compose exec backend python -m app.jobs.sync_rankings   # Trends: most-cited + most-active
+docker compose exec backend python -m app.jobs.sync_year_counts # Trends: yearly output curves
 docker compose exec backend python -m app.jobs.digest --window 3
 ```
 
@@ -61,8 +64,10 @@ docker compose down -v       # also drops the Postgres volume (re-seeds on next 
 ## Production topology (phase 1)
 
 - **Frontend** → GitHub Pages (repo `researchfrontier.github.io`).
-- **Backend** → Fly.io (`fly.toml` here; `fly deploy` from the backend repo).
-- **Database** → Neon serverless Postgres; apply `researchfrontier-db/schema/*.sql`.
+- **Backend** → Render free web service (`render.yaml` in the backend repo,
+  auto-deploys on push to `main`). `fly.toml` here is an alternative Fly.io manifest.
+- **Database** → Neon serverless Postgres; apply `researchfrontier-db/schema/*.sql`
+  by hand (there is no migration runner) before deploying a backend that needs them.
 - **Jobs** → GitHub Actions cron in the backend repo.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full picture.

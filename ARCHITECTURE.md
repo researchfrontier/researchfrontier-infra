@@ -10,7 +10,7 @@ replacement for reading papers; a simplified way in.
 | Repo | Role | Runtime |
 |------|------|---------|
 | `researchfrontier-frontend` | SvelteKit SPA (static) | GitHub Pages (`researchfrontier.github.io`) |
-| `researchfrontier-backend` | FastAPI + ingestion/digest jobs | PaaS (Fly.io) |
+| `researchfrontier-backend` | FastAPI + ingestion/stats/digest jobs | PaaS (Render) |
 | `researchfrontier-db` | Canonical SQL schema + seed | Managed Postgres (Neon) / local container |
 | `researchfrontier-infra` | docker-compose, deploy manifests, this doc | local / CI |
 
@@ -22,17 +22,18 @@ over CORS — because Pages cannot run a server or a database.
 ## Data flow
 
 ```
- OpenAlex / arXiv / Crossref            (authoritative sources)
+ OpenAlex (CC0; itself aggregates Crossref, arXiv, PubMed…)
             │  ingestion jobs (GitHub Actions cron)
             ▼
    PostgreSQL  ── taxonomy (domain→field→subfield→topic)
-            │     works (+ derived peer-review badge, denormalized field pointers)
-            │     digests (Mon/Wed/Fri editions)
+            │     works (last 30 days; + derived peer-review badge, field/topic pointers)
+            │     stats + Trends tables (true counts, momentum, year curves, rankings)
+            │     digests (latest Mon/Wed/Fri edition per field)
             ▼
-     FastAPI  ── /api/fields/hot · /{id}/papers · /{id}/directions · /{id}/digest
-            │     (+ /openapi.json → typed FE client)
+     FastAPI  ── /api/fields/* · /api/topics/* · /api/trends/* · /api/papers/*
+            │     (+ /openapi.json, mirrored by the typed FE client)
             ▼
-  SvelteKit SPA (GitHub Pages)  ── home · fields · field page · about
+  SvelteKit SPA (GitHub Pages)  ── home · fields · field · topic · trends · about
 ```
 
 ## Key decisions (from the design research, 2026)
@@ -46,11 +47,13 @@ over CORS — because Pages cannot run a server or a database.
   (DOI authority, work-type signal, freshest deposits) **+ arXiv** (same-day STEM
   preprints). Later: bioRxiv/medRxiv, Europe PMC/PubMed (MeSH), DOAJ (peer-review
   verification). Dedup: DOI → preprint↔published cluster → fuzzy title+author+year.
-  Ingestion is watermarked on ingest date, not publication date.
+  Ingestion is watermarked on ingest date, not publication date. *Today only
+  OpenAlex is wired (daily lookback ingest, DOI dedup); the other sources reach us
+  through it.*
 - **Peer-review badge** derived (never guessed) from OpenAlex (source type,
   version, work type, `is_retracted`) with Crossref confirmation for retractions:
   `peer_reviewed` · `preprint_published` · `preprint` · `retracted` · `unknown`,
-  each stored with a confidence level and its evidence (shown as "why").
+  each stored with a confidence level.
 - **Stack → FastAPI + PostgreSQL + SvelteKit.** SvelteKit (`adapter-static`) for
   tiny JS, compiler-checked a11y and first-class motion; typed FE client generated
   from the API's OpenAPI schema (phase 2). Editorial design, not card-and-shadow.
@@ -59,14 +62,18 @@ over CORS — because Pages cannot run a server or a database.
   **bearer token in the `Authorization` header** (not cookies — Pages→API is
   cross-site and third-party cookies are blocked). ORCID public record (keywords/
   works) seeds a researcher's initial fields of interest.
-- **Hosting →** Pages (FE) + Fly.io (API, ~$2/mo, scale-to-zero) + Neon (serverless
-  Postgres). Scheduled ingestion + digest on GitHub Actions cron.
+- **Hosting →** Pages (FE) + Render (API, free tier, sleeps when idle) + Neon
+  (serverless Postgres, free tier). Scheduled ingestion, stats and digest on GitHub
+  Actions cron. The browser only ever calls the API; OpenAlex is reached server-side.
+- **Storage →** only what the UI renders is stored (no abstracts), and papers only
+  for the last 30 days (the longest window offered); the ingest job prunes the rest.
 
 ## Phases
 
-1. **Slice (this build)** — ingest OpenAlex + arXiv; browse taxonomy; hot fields;
-   follow fields (localStorage); field page with badged, DOI-linked papers +
-   directions + an in-app brief. No accounts. Ships with a seed so it runs offline.
+1. **Slice (this build)** — ingest OpenAlex; browse taxonomy; hot/cold fields;
+   follow fields (localStorage); field and topic pages with badged, DOI-linked
+   papers + directions + an in-app brief; Trends. No accounts. Ships with a seed
+   so it runs offline.
 2. **Accounts** — ORCID/Google sign-in, server-side profile & preferences, ORCID
    seeding, personalised home + Mon/Wed/Fri digest.
 3. **Scale** — more sources, retraction monitoring, richer trend visuals (ECharts
